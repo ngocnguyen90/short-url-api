@@ -12,116 +12,101 @@ require 'rails_helper'
 # of tools you can use to make these specs even more expressive, but we're
 # sticking to rails and rspec-rails APIs to keep things simple and stable.
 
-RSpec.describe "/urls", type: :request do
+RSpec.describe Api::V1::UrlsController, type: :request do
   # This should return the minimal set of attributes required to create a valid
   # Url. As you add validations to Url, be sure to
   # adjust the attributes here as well.
-  let(:valid_attributes) {
-    skip("Add a hash of attributes valid for your model")
-  }
+  let(:valid_attributes) do
+    {
+      "long_url": 'https://google.com'
+    }
+  end
 
-  let(:invalid_attributes) {
-    skip("Add a hash of attributes invalid for your model")
-  }
+  let(:invalid_attributes) do
+    {
+      "long_url": 'fakestring'
+    }
+  end
 
-  # This should return the minimal set of values that should be in the headers
-  # in order to pass any filters (e.g. authentication) defined in
-  # UrlsController, or in your router and rack
-  # middleware. Be sure to keep this updated too.
-  let(:valid_headers) {
+  let(:valid_headers) do
     {}
-  }
-
-  describe "GET /index" do
-    it "renders a successful response" do
-      Url.create! valid_attributes
-      get urls_url, headers: valid_headers, as: :json
-      expect(response).to be_successful
-    end
   end
 
-  describe "GET /show" do
-    it "renders a successful response" do
-      url = Url.create! valid_attributes
-      get url_url(url), as: :json
-      expect(response).to be_successful
-    end
-  end
-
-  describe "POST /create" do
-    context "with valid parameters" do
-      it "creates a new Url" do
-        expect {
-          post urls_url,
+  describe 'POST /api/v1/urls/encode' do
+    context 'with valid parameters' do
+      it 'encode a long Url' do
+        expect do
+          post '/api/v1/urls/encode',
                params: { url: valid_attributes }, headers: valid_headers, as: :json
-        }.to change(Url, :count).by(1)
+        end.to change(Url, :count).by(1)
       end
 
-      it "renders a JSON response with the new url" do
-        post urls_url,
+      it 'renders a JSON response with the short url' do
+        post '/api/v1/urls/encode',
              params: { url: valid_attributes }, headers: valid_headers, as: :json
-        expect(response).to have_http_status(:created)
-        expect(response.content_type).to match(a_string_including("application/json"))
+
+        expect(response).to have_http_status(200)
+        expect(response.content_type).to match(a_string_including('application/json'))
+        expect(response.body).to include('short_url')
       end
     end
 
-    context "with invalid parameters" do
-      it "does not create a new Url" do
-        expect {
-          post urls_url,
+    context 'with invalid parameters' do
+      it 'does not encode a long Url' do
+        expect do
+          post '/api/v1/urls/encode',
                params: { url: invalid_attributes }, as: :json
-        }.to change(Url, :count).by(0)
+        end.to change(Url, :count).by(0)
       end
 
-      it "renders a JSON response with errors for the new url" do
-        post urls_url,
+      it 'renders a JSON response with errors for the new url' do
+        post '/api/v1/urls/encode',
              params: { url: invalid_attributes }, headers: valid_headers, as: :json
-        expect(response).to have_http_status(:unprocessable_entity)
-        expect(response.content_type).to match(a_string_including("application/json"))
+
+        expect(response).to have_http_status(400)
+        expect(response.content_type).to match(a_string_including('application/json'))
+        expect(response_body['long_url']).to eq ['is invalid']
       end
     end
   end
 
-  describe "PATCH /update" do
-    context "with valid parameters" do
-      let(:new_attributes) {
-        skip("Add a hash of attributes valid for your model")
-      }
+  describe 'POST /api/v1/urls/decode' do
+    context 'with valid parameters' do
+      it 'renders a JSON response with the short url' do
+        post '/api/v1/urls/encode',
+             params: { url: valid_attributes }, headers: valid_headers, as: :json
 
-      it "updates the requested url" do
-        url = Url.create! valid_attributes
-        patch url_url(url),
-              params: { url: new_attributes }, headers: valid_headers, as: :json
-        url.reload
-        skip("Add assertions for updated state")
-      end
+        expect(response).to have_http_status(200)
 
-      it "renders a JSON response with the url" do
-        url = Url.create! valid_attributes
-        patch url_url(url),
-              params: { url: new_attributes }, headers: valid_headers, as: :json
-        expect(response).to have_http_status(:ok)
-        expect(response.content_type).to match(a_string_including("application/json"))
+        decode_valid_attributes = {
+          'short_url' => response_body['short_url']
+        }
+
+        post '/api/v1/urls/decode',
+             params: { url: decode_valid_attributes }, headers: valid_headers, as: :json
+
+        expect(response).to have_http_status(200)
+        expect(response.content_type).to match(a_string_including('application/json'))
+        expect(response_body['long_url']).to eq 'https://google.com'
       end
     end
 
-    context "with invalid parameters" do
-      it "renders a JSON response with errors for the url" do
-        url = Url.create! valid_attributes
-        patch url_url(url),
-              params: { url: invalid_attributes }, headers: valid_headers, as: :json
-        expect(response).to have_http_status(:unprocessable_entity)
-        expect(response.content_type).to match(a_string_including("application/json"))
+    context 'with invalid parameters' do
+      it 'renders a JSON response with errors for the new url' do
+        invalid_attributes = {
+          'short_url' => 'fakestring'
+        }
+        post '/api/v1/urls/decode',
+             params: { url: invalid_attributes }, headers: valid_headers, as: :json
+
+        expect(response).to have_http_status(400)
+        expect(response.content_type).to match(a_string_including('application/json'))
+        expect(response_body['short_url']).to eq ['is invalid']
       end
     end
   end
 
-  describe "DELETE /destroy" do
-    it "destroys the requested url" do
-      url = Url.create! valid_attributes
-      expect {
-        delete url_url(url), headers: valid_headers, as: :json
-      }.to change(Url, :count).by(-1)
-    end
+  def response_body
+    JSON.parse(response.body)
   end
 end
